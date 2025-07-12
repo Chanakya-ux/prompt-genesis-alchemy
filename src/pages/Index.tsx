@@ -122,19 +122,24 @@ const Index = () => {
       // Get config from localStorage
       const config = JSON.parse(localStorage.getItem('promptlab_config') || '{}');
       
-      // This would call your backend API with API keys
-      const response = await fetch('/api/optimize-prompt', {
+      // Call Google Gemini API directly
+      const systemPrompt = customStyle || modes[selectedMode as keyof typeof modes] || modes.clarity;
+      
+      const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-latest:generateContent?key=${config.googleApiKey}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${config.googleApiKey}`, // Pass API key in header
         },
         body: JSON.stringify({
-          prompt: originalPrompt,
-          mode: modeToUse,
-          customStyle: customStyle,
-          supabaseUrl: config.supabaseUrl,
-          supabaseKey: config.supabaseKey
+          contents: [{
+            parts: [{
+              text: `${systemPrompt}\n\nOriginal prompt to optimize: "${originalPrompt}"\n\nPlease provide only the optimized prompt without any additional explanation or formatting.`
+            }]
+          }],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 2048,
+          }
         }),
       });
 
@@ -142,20 +147,15 @@ const Index = () => {
         throw new Error('Optimization failed');
       }
 
-      // Simulate streaming response
-      const reader = response.body?.getReader();
-      let result = '';
+      const data = await response.json();
+      const result = data.candidates?.[0]?.content?.parts?.[0]?.text || 'Failed to optimize prompt';
       
-      if (reader) {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          
-          const chunk = new TextDecoder().decode(value);
-          result += chunk;
-          setStreamedContent(result);
-          await new Promise(resolve => setTimeout(resolve, 50)); // Simulate streaming delay
-        }
+      // Simulate streaming effect for better UX
+      let displayText = '';
+      for (let i = 0; i < result.length; i++) {
+        displayText += result[i];
+        setStreamedContent(displayText);
+        await new Promise(resolve => setTimeout(resolve, 20));
       }
       
       setOptimizedPrompt(result);
