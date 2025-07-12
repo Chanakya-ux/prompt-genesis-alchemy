@@ -26,7 +26,7 @@ const ModeSelector: React.FC<ModeSelectorProps> = ({
         <Label className="text-sm font-medium">Popular Modes</Label>
         <Select value={selectedMode} onValueChange={onModeSelect}>
           <SelectTrigger className="w-[200px] bg-background/50 border-border/40">
-            <SelectValue placeholder="More modes..." />
+            <SelectValue placeholder="Other Modes" />
           </SelectTrigger>
           <SelectContent className="bg-popover/95 backdrop-blur-xl border-border/40">
             {otherModes.map((mode) => (

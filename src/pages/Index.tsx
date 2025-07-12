@@ -13,6 +13,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { toast } from '@/hooks/use-toast';
+import ConfigurationModal from '@/components/ConfigurationModal';
 import { 
   Sparkles, 
   Brain, 
@@ -66,6 +67,8 @@ const Index = () => {
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamedContent, setStreamedContent] = useState('');
   const [selectedMode, setSelectedMode] = useState('');
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [isConfigured, setIsConfigured] = useState(false);
 
   useEffect(() => {
     if (darkMode) {
@@ -74,6 +77,19 @@ const Index = () => {
       document.documentElement.classList.remove('dark');
     }
   }, [darkMode]);
+
+  useEffect(() => {
+    // Check if API keys are configured
+    const config = localStorage.getItem('promptlab_config');
+    if (config) {
+      try {
+        const parsed = JSON.parse(config);
+        setIsConfigured(!!parsed.googleApiKey);
+      } catch (e) {
+        setIsConfigured(false);
+      }
+    }
+  }, []);
 
   const handleModeSelect = (mode: string) => {
     setCustomStyle(modes[mode as keyof typeof modes]);
@@ -90,6 +106,12 @@ const Index = () => {
       return;
     }
 
+    // Check if configured
+    if (!isConfigured) {
+      setShowConfigModal(true);
+      return;
+    }
+
     const modeToUse = selectedMode || (customStyle ? 'custom' : 'clarity');
     
     setIsOptimizing(true);
@@ -97,16 +119,22 @@ const Index = () => {
     setStreamedContent('');
     
     try {
-      // This would call your backend API
+      // Get config from localStorage
+      const config = JSON.parse(localStorage.getItem('promptlab_config') || '{}');
+      
+      // This would call your backend API with API keys
       const response = await fetch('/api/optimize-prompt', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Bearer ${config.googleApiKey}`, // Pass API key in header
         },
         body: JSON.stringify({
           prompt: originalPrompt,
           mode: modeToUse,
-          customStyle: customStyle
+          customStyle: customStyle,
+          supabaseUrl: config.supabaseUrl,
+          supabaseKey: config.supabaseKey
         }),
       });
 
@@ -233,12 +261,12 @@ const Index = () => {
 
                   {/* Popular Modes */}
                   <div className="space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Label className="text-sm font-medium">Popular Modes</Label>
-                      <Select value={selectedMode} onValueChange={handleModeSelect}>
-                        <SelectTrigger className="w-[200px] bg-background/50">
-                          <SelectValue placeholder="More modes..." />
-                        </SelectTrigger>
+                     <div className="flex items-center justify-between">
+                       <Label className="text-sm font-medium">Popular Modes</Label>
+                       <Select value={selectedMode} onValueChange={handleModeSelect}>
+                         <SelectTrigger className="w-[200px] bg-background/50">
+                           <SelectValue placeholder="Other Modes" />
+                         </SelectTrigger>
                         <SelectContent>
                           {Object.keys(modes).filter(mode => !popularModes.includes(mode)).map((mode) => (
                             <SelectItem key={mode} value={mode}>
@@ -425,6 +453,13 @@ const Index = () => {
             </AnimatePresence>
           </div>
         </main>
+
+        {/* Configuration Modal */}
+        <ConfigurationModal
+          isOpen={showConfigModal}
+          onClose={() => setShowConfigModal(false)}
+          onConfigured={() => setIsConfigured(true)}
+        />
       </div>
     </div>
   );
